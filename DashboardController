@@ -1,0 +1,72 @@
+import { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
+import Case from "../models/CaseModel";
+
+export const DashboardController = {
+  async filtrarCasos(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { vitima, 
+             sexo, 
+             estado, 
+             lesoes, 
+             cidade, 
+             page = "1", 
+             limit = "10" 
+            } = req.query;
+
+  if (!search) {
+        return res.status(400).json({ msg: "Parâmetro de busca 'search' é obrigatório" });
+      }
+
+//Conversão da página
+      const pageNum = parseInt(page as string, 10);
+      const limitNum = parseInt(limit as string, 10);
+
+    //Página número
+      if (isNaN(pageNum) || pageNum < 1) {
+        return res.status(400).json({ msg: "Número da página inválido" });
+      }
+
+    //Página limite
+      if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+        return res.status(400).json({ msg: "Limite por página deve ser entre 1 e 100" });
+      }
+
+
+      // Criando o filto
+      const filtros: any = {};
+
+      if (vitima) filtros.vitima = { $regex: vitima as string, $options: "i" }; // Busca por nome
+      if (sexo) filtros.sexo = sexo; // Busca pelo sexo
+      if (estado) filtros.estado = estado; // Busca por estado
+      if (lesoes) filtros.lesoes = { $regex: lesoes as string, $options: "i" }; // Busca por lesão
+      if (cidade) filtros.cidade = { $regex: cidade as string, $options: "i" }; // Busca por cidade
+
+      
+      // Consulta e Paginação
+      const [casos, total] = await Promise.all([
+        Case.find(filtros)
+          .sort({ dataCriacao: -1 }) // Ordena por data de criação (mais recente primeiro)
+          .skip((pageNum - 1) * limitNum)
+          .limit(limitNum),
+        Case.countDocuments(filtros),
+      ]);
+
+      // Resposta
+      res.status(200).json({
+        msg: "Casos filtrados com sucesso",
+        casos,
+        paginacao: {
+          total,
+          paginaAtual: pageNum,
+          porPagina: limitNum,
+          totalPaginas: Math.ceil(total / limitNum),
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+};
+
+
